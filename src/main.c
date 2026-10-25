@@ -1,5 +1,7 @@
 #include "raylib.h"
 
+#include <stdio.h>
+
 bool quitGame = false;
 const int windowWidth = 400;
 const int windowHeight = 400;
@@ -28,10 +30,12 @@ is_inside(Complex z) {
 }
 
 Complex
-xy_to_complex(int x, int y) {
-	double new_x = (double)x / windowWidth * 4 - 2;
-	double new_y = (double)y / windowHeight * 4 - 2;
-	return (Complex){.real = new_x, .imag = new_y};
+xy_to_complex(int x, int y, Complex origin, double zoom) {
+	double real =
+	    (double)x / windowWidth * (4 + zoom) - (2 + zoom / 2) + origin.real;
+	double imag = (double)y / windowHeight * (4 + zoom) - (2 + zoom / 2) +
+	              origin.imag;
+	return (Complex){.real = real, .imag = imag};
 }
 
 int
@@ -61,7 +65,8 @@ create_image(State* state) {
 	for (int i = 0; i < windowHeight; i++) {
 		for (int j = 0; j < windowWidth; j++) {
 
-			Complex orig = xy_to_complex(j, i);
+			Complex orig =
+			    xy_to_complex(j, i, state->origin, state->zoom);
 			Complex z = {orig.real, orig.imag};
 
 			int count = 0;
@@ -90,19 +95,46 @@ create_image(State* state) {
 	state->texture = texture;
 }
 
+void
+handle_input(State* state) {
+	int key;
+	do {
+		key = GetKeyPressed();
+		switch (key) {
+		case (KEY_W):
+			state->origin.imag -= 0.08 * (4 + state->zoom);
+			break;
+		case (KEY_S):
+			state->origin.imag += 0.08 * (4 + state->zoom);
+			break;
+		case (KEY_A):
+			state->origin.real -= 0.08 * (4 + state->zoom);
+			break;
+		case (KEY_D):
+			state->origin.real += 0.08 * (4 + state->zoom);
+			break;
+		case (KEY_E):
+			state->zoom -= 0.08;
+			if (state->zoom <= -4) { state->zoom = -3.96; }
+			break;
+		case (KEY_Q): state->zoom += 0.08; break;
+		}
+	} while (key != 0);
+}
+
 int
 main(void) {
-	InitWindow(windowWidth, windowHeight, "Cilantro");
+	InitWindow(windowWidth, windowHeight, "Mandlebrot Set");
 	SetWindowMonitor(0);
 
 	State state = {
 	    .texture = {0},
               .origin = {0, 0},
-              .zoom = 1.0
+              .zoom = 0.0
         };
 
 	Complex previous_origin = {0, 0};
-	double previous_zoom = 0.0;
+	double previous_zoom = 1.0;
 
 	while (!WindowShouldClose() && !quitGame) {
 		BeginDrawing();
@@ -116,10 +148,13 @@ main(void) {
 			create_image(&state);
 			previous_origin = state.origin;
 			previous_zoom = state.zoom;
+			printf("Zoom: %f\n", state.zoom);
 		}
 
 		DrawFPS(5, 5);
 		EndDrawing();
+
+		handle_input(&state);
 	}
 
 	CloseWindow();
